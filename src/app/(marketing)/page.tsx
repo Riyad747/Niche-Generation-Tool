@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { auth } from '@clerk/nextjs/server';
 import { DeveloperBadge } from '@/components/layout/developer-badge';
 
 const modes = [
@@ -8,7 +10,10 @@ const modes = [
   ['Portfolio Gaps', 'Upload a CSV, find what you should create next.'],
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const { userId } = await auth();
+  if (userId) redirect('/overview');
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-24">
       <p className="mb-3 text-sm font-medium uppercase tracking-widest text-primary">
