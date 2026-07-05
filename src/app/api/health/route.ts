@@ -1,0 +1,11 @@
+import { prisma } from '@/lib/db/client';
+
+/** GET /api/health — liveness + DB connectivity probe for uptime monitoring. */
+export async function GET() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return Response.json({ status: 'ok', db: 'up' });
+  } catch {
+    return Response.json({ status: 'degraded', db: 'down' }, { status: 503 });
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npx vitest *)",
+      "Bash(npx prisma *)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" npx prisma validate)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" npx prisma generate)",
+      "Bash(npx tsc *)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\"pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk\" CLERK_SECRET_KEY=\"sk_test_dummy\" ANTHROPIC_API_KEY=\"sk-ant-dummy\" OPENAI_API_KEY=\"sk-dummy\" NEXT_PUBLIC_APP_URL=\"http://localhost:3000\" npx next build)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\"pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk\" CLERK_SECRET_KEY=\"sk_test_dummy\" ANTHROPIC_API_KEY=\"sk-ant-dummy\" OPENAI_API_KEY=\"sk-dummy\" npx next build)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\"pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk\" CLERK_SECRET_KEY=\"x\" ANTHROPIC_API_KEY=\"x\" OPENAI_API_KEY=\"x\" npx next build)",
+      "Bash(DATABASE_URL=\"postgresql://u:p@localhost:5432/db\" NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\"pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk\" CLERK_SECRET_KEY=\"sk_test_dummy\" ANTHROPIC_API_KEY=\"sk-ant-dummy\" OPENAI_API_KEY=\"sk-dummy\" NEXT_PUBLIC_APP_URL=\"http://localhost:3000\" npx next dev -p 3123)",
+      "Bash(curl -s -o /dev/null -w \"landing / => HTTP %{http_code}\\\\n\" http://localhost:3123/)",
+      "Bash(curl -s http://localhost:3123/)",
+      "Bash(curl -s -o /dev/null -w \"GET /overview => HTTP %{http_code} \\(redirect Location: %{redirect_url}\\)\\\\n\" http://localhost:3123/overview)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" http://localhost:3123/api/health)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" http://localhost:3123/api/research/sessions)",
+      "Bash(kill %1)",
+      "Bash(pkill -f \"next dev -p 3123\")",
+      "Bash(rm -f /tmp/nichedev.log; echo \"cleaned\")",
+      "Bash(git --version)",
+      "Bash(vercel --version)",
+      "Bash(gh --version)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.local|node_modules|\\\\.next\")",
+      "Bash(git -c core.autocrlf=false commit -q -m ' *)"
+    ]
+  }
+}

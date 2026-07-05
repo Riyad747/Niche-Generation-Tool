@@ -1,0 +1,622 @@
+// AI Microstock Opportunity Intelligence Platform — Prisma schema
+// Postgres + pgvector + FTS. See docs/02-DATABASE.md for rationale.
+//
+// Notes:
+// - `embedding` / `searchVector` are Unsupported(...) columns; their indexes and generated-column
+//   DDL live in a hand-written migration (see prisma/migrations). pgvector dims default to 1536
+//   (OpenAI text-embedding-3-large truncated). Adjust if you use full 3072.
+// - All user-owned models carry userId; repositories always scope by it.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, pg_trgm]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  PRO
+  STUDIO
+  ENTERPRISE
+}
+
+enum SessionStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+  PARTIAL
+}
+
+enum OpportunityWindow {
+  DAY
+  WEEK
+  MONTH
+  ALLTIME
+}
+
+enum AssetType {
+  PNG
+  VECTOR
+  ILLUSTRATION
+  PHOTO
+  TEMPLATE
+  ICON_SET
+}
+
+enum Platform {
+  ADOBE_STOCK
+  SHUTTERSTOCK
+  FREEPIK
+  CREATIVE_MARKET
+  ENVATO
+}
+
+enum AiTool {
+  MIDJOURNEY
+  FLUX
+  CHATGPT_IMAGE
+  STABLE_DIFFUSION
+}
+
+enum GrowthState {
+  EMERGING
+  RISING
+  EXPLOSIVE
+  STABLE
+  DECLINING
+}
+
+enum SaturationLevel {
+  GREEN // underserved
+  YELLOW
+  ORANGE
+  RED // overserved
+}
+
+enum RiskLevel {
+  SAFE
+  WARNING
+  HIGH_RISK
+}
+
+enum ValidationResult {
+  PASS
+  WARNING
+  FAIL
+}
+
+enum TrendSource {
+  GOOGLE_TRENDS
+  PINTEREST
+  REDDIT
+  INDUSTRY
+  TECHNOLOGY
+}
+
+enum PromptKind {
+  MIDJOURNEY
+  FLUX
+  VECTOR
+  ILLUSTRATION
+}
+
+enum KeywordKind {
+  PRIMARY
+  SECONDARY
+  LONG_TAIL
+  SEMANTIC
+  COMMERCIAL
+  INTENT
+  ADOBE
+  SHUTTERSTOCK
+}
+
+enum TitleKind {
+  SEO
+  ADOBE_STOCK
+  SHUTTERSTOCK
+  FREEPIK
+  COMMERCIAL
+}
+
+enum ReportKind {
+  DAILY
+  WEEKLY
+  MONTHLY
+  OPPORTUNITY
+  TREND
+  PORTFOLIO
+}
+
+enum WatchTargetType {
+  NICHE
+  KEYWORD
+  TOPIC
+  INDUSTRY
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Identity & account
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects         Project[]
+  researchSessions ResearchSession[]
+  niches           Niche[]
+  opportunities    Opportunity[]
+  imageAnalyses    ImageAnalysis[]
+  portfolioUploads PortfolioUpload[]
+  watchlists       Watchlist[]
+  reports          Report[]
+  aiUsage          AiUsage[]
+  quota            UsageQuota?
+
+  @@index([clerkId])
+}
+
+model UsageQuota {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  periodStart          DateTime
+  researchSessionsUsed Int      @default(0)
+  imageAnalysesUsed    Int      @default(0)
+  aiTokensUsed         Int      @default(0)
+  updatedAt            DateTime @updatedAt
+}
+
+model AiUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  engine    String // which engine/service made the call
+  provider  String // "anthropic" | "openai"
+  model     String
+  inputTok  Int
+  outputTok Int
+  costUsd   Decimal  @db.Decimal(10, 6)
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Workspace
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Project {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  seedNiche String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  researchSessions ResearchSession[]
+  opportunities    Opportunity[]
+  portfolioUploads PortfolioUpload[]
+  watchlists       Watchlist[]
+  reports          Report[]
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mode 1 — Deep Niche Expansion Research
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ResearchSession {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  seed      String // the seed niche the user entered
+  status    SessionStatus @default(PENDING)
+  progress  Int           @default(0) // 0-100
+  error     String?
+  params    Json? // depth, breadth, platforms, tools requested
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  niches        Niche[]
+  opportunities Opportunity[]
+
+  @@index([userId, createdAt])
+  @@index([projectId])
+}
+
+model Niche {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String
+  session   ResearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // tree
+  parentId String?
+  parent   Niche?  @relation("NicheTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Niche[] @relation("NicheTree")
+  path     String // materialized path, e.g. "healthcare.telemedicine"
+  depth    Int     @default(0)
+  kind     String  @default("sub") // sub | related | adjacent | emerging | future
+
+  name        String
+  description String?
+
+  // denormalized 0-100 scores
+  demandScore              Int @default(0)
+  competitionScore         Int @default(0)
+  trendScore               Int @default(0)
+  seasonalityScore         Int @default(0)
+  aiCompatScore            Int @default(0)
+  vectorCompatScore        Int @default(0)
+  commercialSafetyScore    Int @default(0)
+  approvalProbabilityScore Int @default(0)
+  opportunityScore         Int @default(0)
+
+  growthState    GrowthState?
+  saturation     SaturationLevel?
+  scoreBreakdown Json?
+  scoreVersion   Int              @default(1)
+
+  // search / similarity (managed via raw migration)
+  embedding    Unsupported("vector(1536)")?
+  searchVector Unsupported("tsvector")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  opportunities   Opportunity[]
+  portfolioAssets PortfolioAsset[]
+  portfolioGaps   PortfolioGap[]
+
+  @@index([sessionId, opportunityScore(sort: Desc)])
+  @@index([parentId])
+  @@index([userId])
+  @@index([path])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Opportunity (sellable unit) + its generated assets
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Opportunity {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId       String?
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sessionId       String?
+  session         ResearchSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  nicheId         String?
+  niche           Niche?           @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  imageAnalysisId String?
+  imageAnalysis   ImageAnalysis?   @relation(fields: [imageAnalysisId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String?
+  assetType   AssetType
+  window      OpportunityWindow @default(ALLTIME)
+
+  demandScore              Int @default(0)
+  competitionScore         Int @default(0)
+  trendScore               Int @default(0)
+  seasonalityScore         Int @default(0)
+  aiCompatScore            Int @default(0)
+  vectorCompatScore        Int @default(0)
+  commercialSafetyScore    Int @default(0)
+  approvalProbabilityScore Int @default(0)
+  opportunityScore         Int @default(0)
+
+  // content-factory planner outputs
+  estProductionMinutes Int?
+  estPortfolioSize     Int?
+  estScalingPotential  Int? // 0-100
+  estSalesPotential    Int? // 0-100
+
+  scoreBreakdown Json?
+  embedding      Unsupported("vector(1536)")?
+  searchVector   Unsupported("tsvector")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  keywords           Keyword[]
+  prompts            Prompt[]
+  titles             Title[]
+  complianceCheck    ComplianceCheck?
+  approvalPrediction ApprovalPrediction?
+
+  @@index([projectId, window, opportunityScore(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([nicheId])
+}
+
+model Keyword {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  term          String
+  kind          KeywordKind
+  score         Int         @default(0) // commercial value 0-100
+  createdAt     DateTime    @default(now())
+
+  @@index([opportunityId, kind])
+}
+
+model Prompt {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  kind          PromptKind
+  body          String
+  tool          AiTool?
+
+  // validator output
+  validation      ValidationResult?
+  commercialValue Int? // 0-100
+  aiFriendliness  Int?
+  vectorFriendly  Int?
+  approvalSafety  Int?
+  createdAt       DateTime          @default(now())
+
+  variations PromptVariation[]
+
+  @@index([opportunityId, kind])
+}
+
+model PromptVariation {
+  id        String   @id @default(cuid())
+  promptId  String
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([promptId])
+}
+
+model Title {
+  id            String      @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  kind          TitleKind
+  text          String
+  createdAt     DateTime    @default(now())
+
+  @@index([opportunityId, kind])
+}
+
+model ComplianceCheck {
+  id            String      @id @default(cuid())
+  opportunityId String      @unique
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  overall       RiskLevel
+  trademarkRisk RiskLevel
+  copyrightRisk RiskLevel
+  logoRisk      RiskLevel
+  brandRisk     RiskLevel
+  characterRisk RiskLevel
+  celebrityRisk RiskLevel
+  notes         Json?
+  createdAt     DateTime    @default(now())
+}
+
+model ApprovalPrediction {
+  id               String      @id @default(cuid())
+  opportunityId    String      @unique
+  opportunity      Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  probability      Int // 0-100
+  qualityScore     Int
+  competitionScore Int
+  complianceScore  Int
+  technicalScore   Int
+  similarityRisk   Int
+  rationale        Json?
+  createdAt        DateTime    @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mode 3 — Image-to-Opportunity
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ImageAnalysis {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blobUrl  String
+  fileName String?
+  mimeType String?
+
+  visualStyle      String?
+  composition      String?
+  colorPalette     Json? // extracted palette
+  commercialIntent Int? // 0-100
+  categoryFit      String?
+
+  aiReproducibility   Int? // 0-100
+  vectorSuitability   Int?
+  approvalProbability Int?
+
+  status    SessionStatus                @default(PENDING)
+  raw       Json? // full model analysis
+  embedding Unsupported("vector(1536)")?
+  createdAt DateTime                     @default(now())
+
+  opportunities Opportunity[]
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mode 4 — Portfolio Gap Discovery
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PortfolioUpload {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  platform  Platform
+  fileName  String
+  blobUrl   String?
+  rowCount  Int           @default(0)
+  status    SessionStatus @default(PENDING)
+  summary   Json? // category/asset-type distribution
+  createdAt DateTime      @default(now())
+
+  assets PortfolioAsset[]
+  gaps   PortfolioGap[]
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model PortfolioAsset {
+  id       String          @id @default(cuid())
+  uploadId String
+  upload   PortfolioUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  nicheId  String?
+  niche    Niche?          @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+
+  title     String?
+  category  String?
+  assetType AssetType?
+  keywords  String[]
+  embedding Unsupported("vector(1536)")?
+
+  @@index([uploadId, nicheId])
+}
+
+model PortfolioGap {
+  id               String          @id @default(cuid())
+  uploadId         String
+  upload           PortfolioUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  nicheId          String?
+  niche            Niche?          @relation(fields: [nicheId], references: [id], onDelete: SetNull)
+  label            String
+  gapType          String // missing | weak | growth
+  opportunityScore Int             @default(0)
+  suggestedCount   Int             @default(0) // assets to create to fill gap
+  rationale        Json?
+  createdAt        DateTime        @default(now())
+
+  @@index([uploadId, opportunityScore(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trends (global, shared)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Trend {
+  id          String      @id @default(cuid())
+  term        String
+  source      TrendSource
+  growthState GrowthState @default(STABLE)
+  latestValue Int         @default(0)
+  updatedAt   DateTime    @updatedAt
+
+  points TrendPoint[]
+
+  @@unique([term, source])
+  @@index([growthState])
+}
+
+model TrendPoint {
+  id         String   @id @default(cuid())
+  trendId    String
+  trend      Trend    @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  value      Int // normalized 0-100
+  capturedAt DateTime
+
+  @@index([trendId, capturedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Watchlist (time series of scores)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Watchlist {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  targetType WatchTargetType
+  target     String // the niche/keyword/topic/industry being watched
+  createdAt  DateTime        @default(now())
+
+  snapshots WatchlistSnapshot[]
+
+  @@unique([userId, targetType, target])
+  @@index([userId])
+}
+
+model WatchlistSnapshot {
+  id               String    @id @default(cuid())
+  watchlistId      String
+  watchlist        Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  demandScore      Int
+  competitionScore Int
+  trendScore       Int
+  opportunityScore Int
+  capturedAt       DateTime  @default(now())
+
+  @@index([watchlistId, capturedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reports
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Report {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  kind      ReportKind
+  title     String
+  content   Json // structured report body
+  createdAt DateTime   @default(now())
+
+  @@index([userId, kind, createdAt(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Global taxonomy seed (reusable niche tree, not user-scoped)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Taxonomy {
+  id       String     @id @default(cuid())
+  parentId String?
+  parent   Taxonomy?  @relation("TaxTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Taxonomy[] @relation("TaxTree")
+  name     String
+  path     String
+  depth    Int        @default(0)
+
+  @@unique([path])
+  @@index([parentId])
+}
