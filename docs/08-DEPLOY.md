@@ -67,12 +67,19 @@ Required (build fails without these):
 DATABASE_URL                          # Neon pooled connection string
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY     # Clerk
 CLERK_SECRET_KEY                      # Clerk
-ANTHROPIC_API_KEY                     # Claude
-OPENAI_API_KEY                        # OpenAI (embeddings)
 NEXT_PUBLIC_APP_URL                   # https://<name>.vercel.app  (set after you know the URL, then redeploy)
 ```
+
+> 🔑 **AI keys are NOT required to deploy.** Each user adds their own Anthropic + OpenAI keys in
+> **Settings → API keys** after signing in (stored encrypted). Optionally set server-wide fallback
+> keys below so users don't have to. AI features (research, image analysis, Copilot) simply prompt
+> "add your key in Settings" until a key is present.
+
 Recommended:
 ```
+ANTHROPIC_API_KEY                     # optional server-wide fallback (else users bring their own)
+OPENAI_API_KEY                        # optional server-wide fallback
+APP_ENCRYPTION_KEY                    # 32+ chars, encrypts stored user keys (else derived from CLERK_SECRET_KEY)
 DIRECT_URL                            # Neon direct string (migrations)
 CLERK_WEBHOOK_SECRET                  # from the Clerk webhook you create
 NEXT_PUBLIC_CLERK_SIGN_IN_URL         # /sign-in

@@ -59,3 +59,11 @@ export interface UsageSink {
     outputTok: number;
   }): void | Promise<void>;
 }
+
+/** Thrown when an AI call is attempted but no key (user or server) is available. */
+export class MissingApiKeyError extends Error {
+  constructor(public provider: 'anthropic' | 'openai') {
+    super(`No ${provider} API key configured. Add it in Settings → API Keys.`);
+    this.name = 'MissingApiKeyError';
+  }
+}

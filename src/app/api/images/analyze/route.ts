@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth/require-user';
 import { prisma } from '@/lib/db/client';
-import { getAiClient } from '@/lib/ai';
+import { getUserAiClient } from '@/lib/ai';
 import { ImageAnalysisService } from '@/lib/services/image-analysis.service';
 import { parseImageDataUrl, base64Bytes } from '@/lib/utils/data-url';
 import { handle, ok, fail, enforceRate } from '@/lib/api/respond';
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const ai = getAiClient(user.id);
+    const ai = await getUserAiClient(user.id);
     const result = await new ImageAnalysisService(ai).analyze(record.id, image);
 
     return ok({ id: record.id, ...result }, 201);

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { UnauthorizedError } from '@/lib/auth/require-user';
 import { QuotaExceededError } from '@/lib/services/quota.service';
+import { MissingApiKeyError } from '@/lib/ai/client';
 import { rateLimit } from '@/lib/cache/rate-limit';
 import { log, requestId } from '@/lib/log';
 
@@ -30,6 +31,10 @@ export function handle(fn: () => Promise<Response>): Promise<Response> {
       const ms = Date.now() - start;
       if (err instanceof UnauthorizedError) return fail('UNAUTHORIZED', 'Sign in required', 401);
       if (err instanceof ZodError) return fail('VALIDATION', 'Invalid request', 422, err.flatten());
+      if (err instanceof MissingApiKeyError) {
+        log.warn('request.missingKey', { rid, provider: err.provider, ms });
+        return fail('MISSING_API_KEY', err.message, 400, { provider: err.provider });
+      }
       if (err instanceof QuotaExceededError) {
         log.warn('request.quota', { rid, kind: err.kind, ms });
         return fail('QUOTA_EXCEEDED', `You've hit your plan limit for ${err.kind}`, 402, {

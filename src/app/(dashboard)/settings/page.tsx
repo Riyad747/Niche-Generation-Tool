@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/auth/require-user';
 import { prisma } from '@/lib/db/client';
+import { ApiKeysForm } from '@/components/settings/api-keys-form';
 
 /** Settings — account plan + this-period AI usage. Billing wiring comes in Phase 5. */
 export default async function SettingsPage() {
@@ -15,6 +16,8 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">Account and usage.</p>
       </div>
+
+      <ApiKeysForm />
 
       <div className="rounded-xl border bg-card p-5">
         <h2 className="font-semibold">Plan</h2>

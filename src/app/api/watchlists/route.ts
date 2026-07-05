@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth/require-user';
 import { watchlistRepo } from '@/lib/db/repositories/watchlist-repo';
-import { getAiClient } from '@/lib/ai';
+import { getUserAiClient } from '@/lib/ai';
 import { WatchlistService, computeDelta } from '@/lib/services/watchlist.service';
 import { handle, ok } from '@/lib/api/respond';
 
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const entry = await watchlistRepo.create({ userId: user.id, targetType, target });
 
     // Capture an initial snapshot so the entry has data immediately.
-    const ai = getAiClient(user.id);
+    const ai = await getUserAiClient(user.id);
     await new WatchlistService(ai).snapshot(entry.id, target);
 
     return ok({ id: entry.id }, 201);

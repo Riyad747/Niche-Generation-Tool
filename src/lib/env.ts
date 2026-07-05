@@ -17,8 +17,10 @@ const schema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   QSTASH_TOKEN: z.string().optional(),
 
-  ANTHROPIC_API_KEY: z.string().min(1),
-  OPENAI_API_KEY: z.string().min(1),
+  // Optional at boot: users can supply their own keys in-app (BYOK). A server
+  // key here acts as the fallback when a user hasn't set their own.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
 
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),

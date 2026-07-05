@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/client';
 import type { AiClient, UsageSink } from './client';
 import { RealAiClient } from './anthropic';
+import { secretsService } from '@/lib/services/secrets.service';
 
 export * from './client';
 export { modelFor } from './model-policy';
@@ -17,26 +18,42 @@ const PRICE_PER_MTOK: Record<string, { in: number; out: number }> = {
   'gpt-4o-mini': { in: 0.15, out: 0.6 },
 };
 
-export function getAiClient(userId?: string, sessionId?: string): AiClient {
-  const sink: UsageSink | undefined = userId
-    ? {
-        async record(u) {
-          const p = PRICE_PER_MTOK[u.model] ?? { in: 0, out: 0 };
-          const costUsd = (u.inputTok / 1e6) * p.in + (u.outputTok / 1e6) * p.out;
-          await prisma.aiUsage.create({
-            data: {
-              userId,
-              engine: u.engine,
-              provider: u.provider,
-              model: u.model,
-              inputTok: u.inputTok,
-              outputTok: u.outputTok,
-              costUsd,
-              sessionId,
-            },
-          });
+function usageSink(userId?: string, sessionId?: string): UsageSink | undefined {
+  if (!userId) return undefined;
+  return {
+    async record(u) {
+      const p = PRICE_PER_MTOK[u.model] ?? { in: 0, out: 0 };
+      const costUsd = (u.inputTok / 1e6) * p.in + (u.outputTok / 1e6) * p.out;
+      await prisma.aiUsage.create({
+        data: {
+          userId,
+          engine: u.engine,
+          provider: u.provider,
+          model: u.model,
+          inputTok: u.inputTok,
+          outputTok: u.outputTok,
+          costUsd,
+          sessionId,
         },
-      }
-    : undefined;
-  return new RealAiClient(sink);
+      });
+    },
+  };
+}
+
+/** Env-key-only client (server contexts with no specific user). */
+export function getAiClient(userId?: string, sessionId?: string): AiClient {
+  return new RealAiClient({ usage: usageSink(userId, sessionId) });
+}
+
+/**
+ * Preferred: an AiClient using the user's own keys (BYOK) when set, falling back
+ * to server env keys. Every user-facing AI route should use this.
+ */
+export async function getUserAiClient(userId: string, sessionId?: string): Promise<AiClient> {
+  const keys = await secretsService.getKeys(userId);
+  return new RealAiClient({
+    usage: usageSink(userId, sessionId),
+    anthropicKey: keys.anthropicKey,
+    openaiKey: keys.openaiKey,
+  });
 }

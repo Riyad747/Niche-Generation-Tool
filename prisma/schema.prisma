@@ -155,6 +155,12 @@ model User {
   email     String   @unique
   name      String?
   plan      Plan     @default(FREE)
+
+  // BYOK: user's own AI provider keys, encrypted at rest (AES-256-GCM).
+  // When set, these take precedence over the server's env keys for this user.
+  anthropicKeyEnc String?
+  openaiKeyEnc    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

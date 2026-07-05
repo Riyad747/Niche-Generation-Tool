@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/client';
-import { getAiClient } from '@/lib/ai';
+import { getUserAiClient } from '@/lib/ai';
 import { WatchlistService } from '@/lib/services/watchlist.service';
 
 /**
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   let scanned = 0;
   for (const { userId } of users) {
-    const ai = getAiClient(userId);
+    const ai = await getUserAiClient(userId);
     scanned += await new WatchlistService(ai).scanAll(userId);
   }
 

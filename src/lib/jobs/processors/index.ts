@@ -1,4 +1,4 @@
-import { getAiClient } from '@/lib/ai';
+import { getUserAiClient } from '@/lib/ai';
 import { ResearchService } from '@/lib/services/research.service';
 import type { JobType, JobPayload } from '../queue';
 
@@ -7,7 +7,7 @@ export async function processJob<T extends JobType>(type: T, payload: JobPayload
   switch (type) {
     case 'nicheExpansion': {
       const p = payload as JobPayload['nicheExpansion'];
-      const ai = getAiClient(p.userId, p.sessionId);
+      const ai = await getUserAiClient(p.userId, p.sessionId);
       await new ResearchService(ai).run(p.sessionId, p.userId, p.seed, {
         depth: p.depth,
         breadth: p.breadth,
