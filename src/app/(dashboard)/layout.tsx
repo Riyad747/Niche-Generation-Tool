@@ -1,5 +1,6 @@
 import { UserButton } from '@clerk/nextjs';
 import { Sidebar } from '@/components/layout/sidebar';
+import { DeveloperBadge } from '@/components/layout/developer-badge';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <UserButton afterSignOutUrl="/" />
         </header>
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+          <DeveloperBadge className="mt-10" />
+        </main>
       </div>
     </div>
   );

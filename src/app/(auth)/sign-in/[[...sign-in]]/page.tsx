@@ -1,9 +1,11 @@
 import { SignIn } from '@clerk/nextjs';
+import { DeveloperBadge } from '@/components/layout/developer-badge';
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4">
       <SignIn />
+      <DeveloperBadge />
     </div>
   );
 }

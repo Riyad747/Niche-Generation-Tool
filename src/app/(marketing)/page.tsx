@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DeveloperBadge } from '@/components/layout/developer-badge';
 
 const modes = [
   ['Deep Niche Research', 'Expand a seed niche into a scored, ranked opportunity tree.'],
@@ -44,6 +45,10 @@ export default function LandingPage() {
           </div>
         ))}
       </div>
+
+      <footer className="mt-24 border-t">
+        <DeveloperBadge />
+      </footer>
     </main>
   );
 }
