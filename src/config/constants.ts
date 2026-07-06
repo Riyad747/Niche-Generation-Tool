@@ -12,14 +12,20 @@ export type AiToolKey = (typeof AI_TOOLS)[number];
 
 export const ASSET_TYPES = ['PNG', 'VECTOR', 'ILLUSTRATION'] as const;
 
-/** Mode 1 expansion guardrails — bound recursion so a run can't explode. */
+/**
+ * Mode 1 expansion guardrails — bound recursion so a run can't explode.
+ * Defaults are tuned for AI free tiers (e.g. Gemini ~15 req/min): a default run
+ * is ~40 niches and finishes in a few minutes without tripping rate limits.
+ * Bump DEFAULT_DEPTH/BREADTH (or MAX_NICHES_PER_SESSION) on a paid key for
+ * hundreds of niches per run.
+ */
 export const EXPANSION = {
-  DEFAULT_DEPTH: 3,
-  MAX_DEPTH: 5,
-  DEFAULT_BREADTH: 8, // children per node
-  MAX_BREADTH: 12,
-  MAX_NICHES_PER_SESSION: 400,
-  CONCURRENCY: 6, // parallel scoring calls
+  DEFAULT_DEPTH: 2,
+  MAX_DEPTH: 4,
+  DEFAULT_BREADTH: 6, // children per node
+  MAX_BREADTH: 10,
+  MAX_NICHES_PER_SESSION: 120,
+  CONCURRENCY: 4, // parallel scoring calls — keep modest for free-tier rate limits
 };
 
 export const IDEA_COUNTS = { png: 50, vector: 50, illustration: 50 } as const;
