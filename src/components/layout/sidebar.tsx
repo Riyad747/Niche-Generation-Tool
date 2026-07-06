@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
+  CalendarClock,
   Network,
   TrendingUp,
   LineChart,
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils/cn';
 
 const NAV = [
   { href: '/overview', label: 'Overview', icon: LayoutDashboard },
+  { href: '/calendar', label: 'Content Calendar', icon: CalendarClock },
   { href: '/niches', label: 'Niche Explorer', icon: Network },
   { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
   { href: '/trends', label: 'Trends', icon: LineChart },
