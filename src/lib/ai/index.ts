@@ -57,8 +57,8 @@ export async function getUserAiClient(userId: string, sessionId?: string): Promi
   const keys = await secretsService.getKeys(userId);
   const sink = usageSink(userId, sessionId);
 
-  if (keys.geminiKey || (!keys.anthropicKey && process.env.GEMINI_API_KEY)) {
-    return new GeminiAiClient({ usage: sink, apiKey: keys.geminiKey });
+  if (keys.geminiKeys.length > 0 || (!keys.anthropicKey && process.env.GEMINI_API_KEY)) {
+    return new GeminiAiClient({ usage: sink, apiKeys: keys.geminiKeys });
   }
 
   return new RealAiClient({

@@ -25,7 +25,7 @@ export const EXPANSION = {
   DEFAULT_BREADTH: 6, // children per node
   MAX_BREADTH: 10,
   MAX_NICHES_PER_SESSION: 120,
-  CONCURRENCY: 4, // parallel scoring calls — keep modest for free-tier rate limits
+  CONCURRENCY: 2, // parallel scoring calls — modest so a single free key isn't rate-limited
 };
 
 export const IDEA_COUNTS = { png: 50, vector: 50, illustration: 50 } as const;

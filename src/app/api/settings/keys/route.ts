@@ -12,8 +12,8 @@ export async function GET() {
   });
 }
 
-// Empty string clears a key; omitted field leaves it unchanged. Light format
-// checks catch obvious paste mistakes before they reach the provider.
+// Operations: replace/clear anthropic|openai (empty string clears), append one
+// Gemini key, or remove a Gemini key by index. Omitted fields are untouched.
 const schema = z.object({
   anthropicKey: z
     .string()
@@ -23,26 +23,35 @@ const schema = z.object({
     .string()
     .refine((v) => v === '' || v.startsWith('sk-'), 'OpenAI keys start with "sk-"')
     .optional(),
-  geminiKey: z
-    .string()
-    .refine((v) => v === '' || v.startsWith('AIza'), 'Gemini keys start with "AIza"')
-    .optional(),
+  addGeminiKey: z.string().refine((v) => v.startsWith('AIza'), 'Gemini keys start with "AIza"').optional(),
+  removeGeminiIndex: z.number().int().min(0).optional(),
 });
 
-/** PUT /api/settings/keys — save/clear the user's AI keys (encrypted at rest). */
+/** PUT /api/settings/keys — save/clear/add/remove keys (encrypted at rest). */
 export async function PUT(req: Request) {
   return handle(async () => {
     const user = await requireUser();
     const body = schema.parse(await req.json());
+
     if (
       body.anthropicKey === undefined &&
       body.openaiKey === undefined &&
-      body.geminiKey === undefined
+      body.addGeminiKey === undefined &&
+      body.removeGeminiIndex === undefined
     ) {
-      return fail('VALIDATION', 'No keys provided', 422);
+      return fail('VALIDATION', 'No changes provided', 422);
     }
-    await secretsService.setKeys(user.id, body);
-    const status = await secretsService.status(user.id);
-    return ok(status);
+
+    if (body.anthropicKey !== undefined || body.openaiKey !== undefined) {
+      await secretsService.setKeys(user.id, {
+        anthropicKey: body.anthropicKey,
+        openaiKey: body.openaiKey,
+      });
+    }
+    if (body.addGeminiKey !== undefined) await secretsService.addGeminiKey(user.id, body.addGeminiKey);
+    if (body.removeGeminiIndex !== undefined)
+      await secretsService.removeGeminiKeyAt(user.id, body.removeGeminiIndex);
+
+    return ok(await secretsService.status(user.id));
   });
 }
