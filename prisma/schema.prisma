@@ -158,8 +158,10 @@ model User {
 
   // BYOK: user's own AI provider keys, encrypted at rest (AES-256-GCM).
   // When set, these take precedence over the server's env keys for this user.
+  // A Gemini key (free tier) drives the whole app via its OpenAI-compatible API.
   anthropicKeyEnc String?
   openaiKeyEnc    String?
+  geminiKeyEnc    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -23,6 +23,10 @@ const schema = z.object({
     .string()
     .refine((v) => v === '' || v.startsWith('sk-'), 'OpenAI keys start with "sk-"')
     .optional(),
+  geminiKey: z
+    .string()
+    .refine((v) => v === '' || v.startsWith('AIza'), 'Gemini keys start with "AIza"')
+    .optional(),
 });
 
 /** PUT /api/settings/keys — save/clear the user's AI keys (encrypted at rest). */
@@ -30,7 +34,11 @@ export async function PUT(req: Request) {
   return handle(async () => {
     const user = await requireUser();
     const body = schema.parse(await req.json());
-    if (body.anthropicKey === undefined && body.openaiKey === undefined) {
+    if (
+      body.anthropicKey === undefined &&
+      body.openaiKey === undefined &&
+      body.geminiKey === undefined
+    ) {
       return fail('VALIDATION', 'No keys provided', 422);
     }
     await secretsService.setKeys(user.id, body);

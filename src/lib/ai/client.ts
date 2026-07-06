@@ -62,7 +62,7 @@ export interface UsageSink {
 
 /** Thrown when an AI call is attempted but no key (user or server) is available. */
 export class MissingApiKeyError extends Error {
-  constructor(public provider: 'anthropic' | 'openai') {
+  constructor(public provider: 'anthropic' | 'openai' | 'gemini') {
     super(`No ${provider} API key configured. Add it in Settings → API Keys.`);
     this.name = 'MissingApiKeyError';
   }

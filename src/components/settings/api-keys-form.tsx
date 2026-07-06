@@ -7,7 +7,10 @@ import { apiFetch } from '@/lib/api/client';
 interface KeyStatus {
   anthropic: { set: boolean; masked: string | null };
   openai: { set: boolean; masked: string | null };
+  gemini: { set: boolean; masked: string | null };
 }
+
+type KeyBody = { anthropicKey?: string; openaiKey?: string; geminiKey?: string };
 
 /**
  * BYOK settings — users paste their own Anthropic/OpenAI keys. Keys are sent
@@ -21,13 +24,15 @@ export function ApiKeysForm() {
     queryFn: () => apiFetch<KeyStatus>('/api/settings/keys'),
   });
 
+  const [gemini, setGemini] = useState('');
   const [anthropic, setAnthropic] = useState('');
   const [openai, setOpenai] = useState('');
 
   const save = useMutation({
-    mutationFn: (body: { anthropicKey?: string; openaiKey?: string }) =>
+    mutationFn: (body: KeyBody) =>
       apiFetch<KeyStatus>('/api/settings/keys', { method: 'PUT', body: JSON.stringify(body) }),
     onSuccess: () => {
+      setGemini('');
       setAnthropic('');
       setOpenai('');
       qc.invalidateQueries({ queryKey: ['key-status'] });
@@ -35,7 +40,8 @@ export function ApiKeysForm() {
   });
 
   function submit() {
-    const body: { anthropicKey?: string; openaiKey?: string } = {};
+    const body: KeyBody = {};
+    if (gemini.trim()) body.geminiKey = gemini.trim();
     if (anthropic.trim()) body.anthropicKey = anthropic.trim();
     if (openai.trim()) body.openaiKey = openai.trim();
     if (Object.keys(body).length) save.mutate(body);
@@ -47,35 +53,59 @@ export function ApiKeysForm() {
     <div className="rounded-xl border bg-card p-5">
       <h2 className="font-semibold">AI API keys</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Bring your own keys. They&apos;re encrypted and used only for your account&apos;s AI features
-        (niche research, image analysis, Copilot). Get them from{' '}
-        <a className="text-primary underline" href="https://console.anthropic.com" target="_blank" rel="noreferrer">
-          console.anthropic.com
-        </a>{' '}
-        and{' '}
-        <a className="text-primary underline" href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">
-          platform.openai.com
+        Bring your own key. It&apos;s encrypted and used only for your account&apos;s AI features
+        (niche research, image analysis, Copilot). A <strong>free Google Gemini key</strong> runs the
+        whole app — get one in a click at{' '}
+        <a className="text-primary underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+          aistudio.google.com/apikey
         </a>
         .
       </p>
 
       <div className="mt-5 space-y-4">
-        <KeyField
-          label="Anthropic (Claude)"
-          placeholder="sk-ant-…"
-          value={anthropic}
-          onChange={setAnthropic}
-          status={s?.anthropic}
-          onRemove={() => save.mutate({ anthropicKey: '' })}
-        />
-        <KeyField
-          label="OpenAI (embeddings)"
-          placeholder="sk-…"
-          value={openai}
-          onChange={setOpenai}
-          status={s?.openai}
-          onRemove={() => save.mutate({ openaiKey: '' })}
-        />
+        <div className="rounded-lg border border-primary/40 bg-primary/5 p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+              Free · Recommended
+            </span>
+          </div>
+          <KeyField
+            label="Google Gemini"
+            placeholder="AIza…"
+            value={gemini}
+            onChange={setGemini}
+            status={s?.gemini}
+            onRemove={() => save.mutate({ geminiKey: '' })}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Free tier, no card needed. When set, this powers everything — you don&apos;t need the
+            keys below.
+          </p>
+        </div>
+
+        <details className="rounded-lg border p-4">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+            Advanced: use Anthropic / OpenAI instead
+          </summary>
+          <div className="mt-4 space-y-4">
+            <KeyField
+              label="Anthropic (Claude)"
+              placeholder="sk-ant-…"
+              value={anthropic}
+              onChange={setAnthropic}
+              status={s?.anthropic}
+              onRemove={() => save.mutate({ anthropicKey: '' })}
+            />
+            <KeyField
+              label="OpenAI (embeddings)"
+              placeholder="sk-…"
+              value={openai}
+              onChange={setOpenai}
+              status={s?.openai}
+              onRemove={() => save.mutate({ openaiKey: '' })}
+            />
+          </div>
+        </details>
       </div>
 
       {save.error && (
@@ -86,7 +116,7 @@ export function ApiKeysForm() {
 
       <button
         onClick={submit}
-        disabled={save.isPending || (!anthropic.trim() && !openai.trim())}
+        disabled={save.isPending || (!gemini.trim() && !anthropic.trim() && !openai.trim())}
         className="mt-5 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
       >
         {save.isPending ? 'Saving…' : 'Save keys'}

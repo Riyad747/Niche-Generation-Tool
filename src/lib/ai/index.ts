@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/client';
 import type { AiClient, UsageSink } from './client';
 import { RealAiClient } from './anthropic';
+import { GeminiAiClient } from './gemini';
 import { secretsService } from '@/lib/services/secrets.service';
 
 export * from './client';
@@ -16,6 +17,7 @@ const PRICE_PER_MTOK: Record<string, { in: number; out: number }> = {
   'claude-sonnet-5': { in: 3, out: 15 },
   'claude-haiku-4-5-20251001': { in: 0.8, out: 4 },
   'gpt-4o-mini': { in: 0.15, out: 0.6 },
+  'gemini-2.0-flash': { in: 0, out: 0 }, // free tier
 };
 
 function usageSink(userId?: string, sessionId?: string): UsageSink | undefined {
@@ -47,12 +49,20 @@ export function getAiClient(userId?: string, sessionId?: string): AiClient {
 
 /**
  * Preferred: an AiClient using the user's own keys (BYOK) when set, falling back
- * to server env keys. Every user-facing AI route should use this.
+ * to server env keys. A Gemini key (free tier) takes precedence and runs the
+ * whole app on Gemini; otherwise we use Anthropic + OpenAI. Every user-facing
+ * AI route should use this.
  */
 export async function getUserAiClient(userId: string, sessionId?: string): Promise<AiClient> {
   const keys = await secretsService.getKeys(userId);
+  const sink = usageSink(userId, sessionId);
+
+  if (keys.geminiKey || (!keys.anthropicKey && process.env.GEMINI_API_KEY)) {
+    return new GeminiAiClient({ usage: sink, apiKey: keys.geminiKey });
+  }
+
   return new RealAiClient({
-    usage: usageSink(userId, sessionId),
+    usage: sink,
     anthropicKey: keys.anthropicKey,
     openaiKey: keys.openaiKey,
   });
