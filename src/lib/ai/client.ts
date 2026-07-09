@@ -67,3 +67,14 @@ export class MissingApiKeyError extends Error {
     this.name = 'MissingApiKeyError';
   }
 }
+
+/** A recoverable upstream AI failure with a user-safe message (e.g. rate limit). */
+export class AiError extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+  ) {
+    super(message);
+    this.name = 'AiError';
+  }
+}

@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { AiClient, JsonRequest, VisionRequest, TextRequest, UsageSink } from './client';
-import { MissingApiKeyError } from './client';
+import { MissingApiKeyError, AiError } from './client';
 import { validateJson, sleep } from './json';
 
 // Gemini exposes an OpenAI-compatible API, so we drive it with the OpenAI SDK.
@@ -48,7 +48,7 @@ export class GeminiAiClient implements AiClient {
     const n = this.keys.length;
     if (n === 0) throw new MissingApiKeyError('gemini');
 
-    const attempts = Math.max(n * 2, 4);
+    const attempts = Math.max(n * 3, 5);
     let lastErr: unknown;
     for (let i = 0; i < attempts; i++) {
       const key = this.keys[this.cursor++ % n];
@@ -58,18 +58,28 @@ export class GeminiAiClient implements AiClient {
         lastErr = err;
         const status = (err as { status?: number })?.status ?? 0;
         const retryable = status === 429 || status === 408 || status >= 500;
-        if (!retryable) throw err;
+        if (!retryable) {
+          throw new AiError(`Gemini request failed (${status}): ${errMessage(err)}`, status);
+        }
         // brief backoff before trying the next key (grows across full rounds)
-        await sleep(Math.min(5000, 250 * 2 ** Math.floor(i / n)));
+        await sleep(Math.min(6000, 400 * 2 ** Math.floor(i / n)));
       }
     }
-    throw lastErr;
+    const status = (lastErr as { status?: number })?.status;
+    if (status === 429) {
+      throw new AiError(
+        'Gemini rate limit hit. Add another key in Settings → API keys (from a different Google project), or wait a minute and retry.',
+        429,
+      );
+    }
+    throw new AiError(`Gemini request failed: ${errMessage(lastErr)}`, status);
   }
 
   private async chat(messages: ChatMessages, json: boolean, engine?: string) {
     const res = await this.withRotation((client) =>
       client.chat.completions.create({
         model: GEMINI_MODEL,
+        max_tokens: 8192, // avoid truncating large JSON (keyword/idea generation)
         ...(json ? { response_format: { type: 'json_object' as const } } : {}),
         messages,
       }),
@@ -86,15 +96,22 @@ export class GeminiAiClient implements AiClient {
 
   async json<T>(req: JsonRequest<T>): Promise<T> {
     const system = `${req.system}\n\nRespond with ONLY a single valid JSON object. No markdown, no prose.`;
-    const content = await this.chat(
-      [
-        { role: 'system', content: system },
-        { role: 'user', content: req.user },
-      ],
-      true,
-      req.engine,
-    );
-    return validateJson(req.schema, content);
+    const messages: ChatMessages = [
+      { role: 'system', content: system },
+      { role: 'user', content: req.user },
+    ];
+    // Retry the whole call if the model returns malformed/truncated JSON.
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const content = await this.chat(messages, true, req.engine);
+      try {
+        return validateJson(req.schema, content);
+      } catch (err) {
+        lastErr = err;
+        await sleep(300 * (attempt + 1));
+      }
+    }
+    throw new AiError(`Gemini returned invalid JSON: ${errMessage(lastErr)}`);
   }
 
   async vision<T>(req: VisionRequest<T>): Promise<T> {
@@ -137,4 +154,9 @@ export class GeminiAiClient implements AiClient {
     );
     return res.data.map((d) => d.embedding);
   }
+}
+
+function errMessage(err: unknown): string {
+  if (err instanceof Error) return err.message.slice(0, 200);
+  return String(err).slice(0, 200);
 }

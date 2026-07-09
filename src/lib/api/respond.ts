@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { UnauthorizedError } from '@/lib/auth/require-user';
 import { QuotaExceededError } from '@/lib/services/quota.service';
-import { MissingApiKeyError } from '@/lib/ai/client';
+import { MissingApiKeyError, AiError } from '@/lib/ai/client';
 import { rateLimit } from '@/lib/cache/rate-limit';
 import { log, requestId } from '@/lib/log';
 
@@ -34,6 +34,10 @@ export function handle(fn: () => Promise<Response>): Promise<Response> {
       if (err instanceof MissingApiKeyError) {
         log.warn('request.missingKey', { rid, provider: err.provider, ms });
         return fail('MISSING_API_KEY', err.message, 400, { provider: err.provider });
+      }
+      if (err instanceof AiError) {
+        log.warn('request.aiError', { rid, status: err.status, ms, msg: err.message });
+        return fail('AI_ERROR', err.message, 502, { status: err.status });
       }
       if (err instanceof QuotaExceededError) {
         log.warn('request.quota', { rid, kind: err.kind, ms });

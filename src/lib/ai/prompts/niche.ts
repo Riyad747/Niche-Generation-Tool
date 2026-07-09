@@ -48,12 +48,12 @@ export function contentPrompt(niche: string, description?: string): { system: st
 
 Return JSON:
 {
-  "keywords": [ { "term", "kind", "score" } ],   // ~30 keywords across kinds:
+  "keywords": [ { "term", "kind", "score" } ],   // ~18 keywords across kinds:
      // PRIMARY, SECONDARY, LONG_TAIL, SEMANTIC, COMMERCIAL, INTENT, ADOBE, SHUTTERSTOCK
      // score = commercial value 0-100
-  "titles":   [ { "text", "kind" } ],            // ~10 titles across kinds:
+  "titles":   [ { "text", "kind" } ],            // ~8 titles across kinds:
      // SEO, ADOBE_STOCK, SHUTTERSTOCK, FREEPIK, COMMERCIAL (respect each platform's style)
-  "ideas":    [ { "title", "assetType", "prompt" } ]  // ~15 asset ideas, assetType PNG|VECTOR|ILLUSTRATION,
+  "ideas":    [ { "title", "assetType", "prompt" } ]  // ~10 asset ideas, assetType PNG|VECTOR|ILLUSTRATION,
      // prompt = a ready-to-use MidJourney/Flux prompt
 }
 Keep everything commercially safe (no brands, logos, celebrities, trademarked characters).`,
