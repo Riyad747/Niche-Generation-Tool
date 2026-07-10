@@ -105,7 +105,8 @@ export function NicheResults({ sessionId }: { sessionId: string }) {
 
         <div>
           {selected ? (
-            <NicheDetailPanel niche={selected} />
+            // key resets generated-content state when a different niche is selected
+            <NicheDetailPanel key={selected.id} niche={selected} />
           ) : (
             <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
               Select a niche to see its score breakdown and generate content.

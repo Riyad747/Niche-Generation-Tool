@@ -5,13 +5,27 @@ import { validateJson, sleep } from './json';
 
 // Gemini exposes an OpenAI-compatible API, so we drive it with the OpenAI SDK.
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
-const GEMINI_MODEL = 'gemini-2.0-flash'; // free tier, fast, multimodal, JSON-capable
 const GEMINI_EMBED_MODEL = 'text-embedding-004';
+
+/** Selectable Gemini models (Settings). First entry is the default. */
+export const GEMINI_MODELS = [
+  'gemini-2.0-flash', // most generous free quota
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-3-flash', // newest flash
+  'gemini-3-pro-preview',
+] as const;
+export const DEFAULT_GEMINI_MODEL = GEMINI_MODELS[0];
+
+// If the chosen model isn't available to a key (404), we fall back down this chain.
+const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
 export interface GeminiClientOptions {
   usage?: UsageSink;
   /** One or more Gemini keys; rotated per call and failed over on rate limits. */
   apiKeys?: string[];
+  /** Preferred model id; unavailable models fall back automatically. */
+  model?: string;
 }
 
 type ChatMessages = OpenAI.Chat.Completions.ChatCompletionMessageParam[];
@@ -27,11 +41,20 @@ export class GeminiAiClient implements AiClient {
   private usage?: UsageSink;
   private clients = new Map<string, OpenAI>();
   private cursor = 0;
+  /** preferred model first, then fallbacks; advances on "model not found" */
+  private modelChain: string[];
+  private modelIdx = 0;
 
   constructor(opts: GeminiClientOptions = {}) {
     const fromEnv = process.env.GEMINI_API_KEY ? [process.env.GEMINI_API_KEY] : [];
     this.keys = (opts.apiKeys?.length ? opts.apiKeys : fromEnv).map((k) => k.trim()).filter(Boolean);
     this.usage = opts.usage;
+    const preferred = opts.model?.trim() || DEFAULT_GEMINI_MODEL;
+    this.modelChain = [...new Set([preferred, ...FALLBACK_MODELS])];
+  }
+
+  private get model(): string {
+    return this.modelChain[this.modelIdx];
   }
 
   private clientFor(key: string): OpenAI {
@@ -75,23 +98,38 @@ export class GeminiAiClient implements AiClient {
     throw new AiError(`Gemini request failed: ${errMessage(lastErr)}`, status);
   }
 
-  private async chat(messages: ChatMessages, json: boolean, engine?: string) {
-    const res = await this.withRotation((client) =>
-      client.chat.completions.create({
-        model: GEMINI_MODEL,
-        max_tokens: 8192, // avoid truncating large JSON (keyword/idea generation)
-        ...(json ? { response_format: { type: 'json_object' as const } } : {}),
-        messages,
-      }),
-    );
-    await this.usage?.record({
-      engine: engine ?? 'unknown',
-      provider: 'google',
-      model: GEMINI_MODEL,
-      inputTok: res.usage?.prompt_tokens ?? 0,
-      outputTok: res.usage?.completion_tokens ?? 0,
-    });
-    return res.choices[0]?.message?.content ?? '';
+  private async chat(messages: ChatMessages, json: boolean, engine?: string): Promise<string> {
+    // Try the preferred model; on "model not found" step down the fallback chain.
+    for (;;) {
+      const model = this.model;
+      try {
+        const res = await this.withRotation((client) =>
+          client.chat.completions.create({
+            model,
+            max_tokens: 8192, // avoid truncating large JSON (keyword/idea generation)
+            ...(json ? { response_format: { type: 'json_object' as const } } : {}),
+            messages,
+          }),
+        );
+        await this.usage?.record({
+          engine: engine ?? 'unknown',
+          provider: 'google',
+          model,
+          inputTok: res.usage?.prompt_tokens ?? 0,
+          outputTok: res.usage?.completion_tokens ?? 0,
+        });
+        return res.choices[0]?.message?.content ?? '';
+      } catch (err) {
+        const notFound =
+          (err instanceof AiError && err.status === 404) ||
+          /not.?found|not.?supported|invalid.?model/i.test(errMessage(err));
+        if (notFound && this.modelIdx < this.modelChain.length - 1) {
+          this.modelIdx++; // e.g. gemini-3-flash not on this key yet → 2.5-flash
+          continue;
+        }
+        throw err;
+      }
+    }
   }
 
   async json<T>(req: JsonRequest<T>): Promise<T> {

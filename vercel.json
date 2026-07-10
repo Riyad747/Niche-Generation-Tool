@@ -6,6 +6,7 @@
   "functions": {
     "src/app/api/images/analyze/route.ts": { "maxDuration": 60 },
     "src/app/api/copilot/chat/route.ts": { "maxDuration": 60 },
-    "src/app/api/jobs/[type]/route.ts": { "maxDuration": 300 }
+    "src/app/api/jobs/[type]/route.ts": { "maxDuration": 300 },
+    "src/app/api/research/sessions/route.ts": { "maxDuration": 300 }
   }
 }

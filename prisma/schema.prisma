@@ -162,6 +162,8 @@ model User {
   anthropicKeyEnc String?
   openaiKeyEnc    String?
   geminiKeyEnc    String?
+  /** preferred Gemini model id (e.g. gemini-3-flash); falls back if unavailable */
+  geminiModel     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

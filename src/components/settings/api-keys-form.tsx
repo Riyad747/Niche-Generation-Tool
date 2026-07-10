@@ -7,7 +7,7 @@ import { apiFetch } from '@/lib/api/client';
 interface KeyStatus {
   anthropic: { set: boolean; masked: string | null };
   openai: { set: boolean; masked: string | null };
-  gemini: { count: number; masked: string[] };
+  gemini: { count: number; masked: string[]; model: string | null };
 }
 
 type KeyBody = {
@@ -15,7 +15,16 @@ type KeyBody = {
   openaiKey?: string;
   addGeminiKey?: string;
   removeGeminiIndex?: number;
+  geminiModel?: string;
 };
+
+const GEMINI_MODEL_OPTIONS = [
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash — default, most free quota' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash — smarter, good free quota' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro — strongest reasoning, low free quota' },
+  { id: 'gemini-3-flash', label: 'Gemini 3 Flash — newest' },
+  { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (preview)' },
+];
 
 /**
  * BYOK settings. Gemini (free) supports MULTIPLE keys — add several and the app
@@ -117,6 +126,26 @@ export function ApiKeysForm() {
           create each key in a different Google project (or account), since keys in the same project
           share one limit.
         </p>
+
+        <div className="mt-4 border-t pt-3">
+          <label className="text-xs font-medium">Model</label>
+          <select
+            value={s?.gemini.model ?? 'gemini-2.0-flash'}
+            onChange={(e) => save.mutate({ geminiModel: e.target.value })}
+            disabled={save.isPending}
+            className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          >
+            {GEMINI_MODEL_OPTIONS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            If a model isn&apos;t available to your key yet, the app automatically falls back to
+            Gemini 2.5 / 2.0 Flash. Note: newer models often have smaller free-tier limits.
+          </p>
+        </div>
         {save.error && <p className="mt-2 text-sm text-destructive">{(save.error as Error).message}</p>}
       </div>
 

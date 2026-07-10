@@ -85,6 +85,20 @@ export const NicheContentSchema = z.object({
 });
 export type NicheContent = z.infer<typeof NicheContentSchema>;
 
+/** Prompt Generator — prompt packs across tools/styles. */
+export const PromptPackSchema = z.object({
+  prompts: z
+    .array(
+      z.object({
+        kind: z.enum(['MIDJOURNEY', 'FLUX', 'VECTOR', 'ILLUSTRATION']),
+        body: z.string().min(1),
+        variations: z.array(z.string()).max(4),
+      }),
+    )
+    .max(16),
+});
+export type PromptPack = z.infer<typeof PromptPackSchema>;
+
 /** Mode 3 — Image → Opportunity analysis output. */
 export const ImageAnalysisSchema = z.object({
   visualStyle: z.string().max(200),

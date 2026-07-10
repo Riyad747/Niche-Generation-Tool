@@ -14,15 +14,15 @@ export const ASSET_TYPES = ['PNG', 'VECTOR', 'ILLUSTRATION'] as const;
 
 /**
  * Mode 1 expansion guardrails — bound recursion so a run can't explode.
- * Defaults are tuned for AI free tiers (e.g. Gemini ~15 req/min): a default run
- * is ~40 niches and finishes in a few minutes without tripping rate limits.
- * Bump DEFAULT_DEPTH/BREADTH (or MAX_NICHES_PER_SESSION) on a paid key for
- * hundreds of niches per run.
+ * Defaults are tuned for AI free tiers (e.g. Gemini ~15 req/min) AND the
+ * serverless execution window (research runs inline for ≤300s without QStash):
+ * a default run is ~21 niches (~26 AI calls ≈ 2 min on one free key).
+ * Bump DEFAULT_DEPTH/BREADTH on a paid key or with QStash configured.
  */
 export const EXPANSION = {
   DEFAULT_DEPTH: 2,
   MAX_DEPTH: 4,
-  DEFAULT_BREADTH: 6, // children per node
+  DEFAULT_BREADTH: 4, // children per node
   MAX_BREADTH: 10,
   MAX_NICHES_PER_SESSION: 120,
   CONCURRENCY: 2, // parallel scoring calls — modest so a single free key isn't rate-limited

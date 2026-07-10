@@ -25,6 +25,11 @@ const schema = z.object({
     .optional(),
   addGeminiKey: z.string().refine((v) => v.startsWith('AIza'), 'Gemini keys start with "AIza"').optional(),
   removeGeminiIndex: z.number().int().min(0).optional(),
+  geminiModel: z
+    .string()
+    .max(60)
+    .regex(/^[a-z0-9.-]*$/i, 'Invalid model id')
+    .optional(),
 });
 
 /** PUT /api/settings/keys — save/clear/add/remove keys (encrypted at rest). */
@@ -37,7 +42,8 @@ export async function PUT(req: Request) {
       body.anthropicKey === undefined &&
       body.openaiKey === undefined &&
       body.addGeminiKey === undefined &&
-      body.removeGeminiIndex === undefined
+      body.removeGeminiIndex === undefined &&
+      body.geminiModel === undefined
     ) {
       return fail('VALIDATION', 'No changes provided', 422);
     }
@@ -51,6 +57,8 @@ export async function PUT(req: Request) {
     if (body.addGeminiKey !== undefined) await secretsService.addGeminiKey(user.id, body.addGeminiKey);
     if (body.removeGeminiIndex !== undefined)
       await secretsService.removeGeminiKeyAt(user.id, body.removeGeminiIndex);
+    if (body.geminiModel !== undefined)
+      await secretsService.setGeminiModel(user.id, body.geminiModel);
 
     return ok(await secretsService.status(user.id));
   });

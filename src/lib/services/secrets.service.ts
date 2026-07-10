@@ -6,12 +6,14 @@ export interface ProviderKeys {
   openaiKey?: string;
   /** One or more Gemini keys — rotated for throughput / rate-limit failover. */
   geminiKeys: string[];
+  /** Preferred Gemini model id (null = default). */
+  geminiModel: string | null;
 }
 
 export interface KeyStatus {
   anthropic: { set: boolean; masked: string | null };
   openai: { set: boolean; masked: string | null };
-  gemini: { count: number; masked: string[] };
+  gemini: { count: number; masked: string[]; model: string | null };
 }
 
 /**
@@ -24,13 +26,14 @@ export const secretsService = {
   async getKeys(userId: string): Promise<ProviderKeys> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { anthropicKeyEnc: true, openaiKeyEnc: true, geminiKeyEnc: true },
+      select: { anthropicKeyEnc: true, openaiKeyEnc: true, geminiKeyEnc: true, geminiModel: true },
     });
-    if (!user) return { geminiKeys: [] };
+    if (!user) return { geminiKeys: [], geminiModel: null };
     return {
       anthropicKey: user.anthropicKeyEnc ? safeDecrypt(user.anthropicKeyEnc) : undefined,
       openaiKey: user.openaiKeyEnc ? safeDecrypt(user.openaiKeyEnc) : undefined,
       geminiKeys: parseKeyList(user.geminiKeyEnc ? safeDecrypt(user.geminiKeyEnc) : undefined),
+      geminiModel: user.geminiModel,
     };
   },
 
@@ -43,8 +46,20 @@ export const secretsService = {
       openai: keys.openaiKey
         ? { set: true, masked: maskSecret(keys.openaiKey) }
         : { set: false, masked: null },
-      gemini: { count: keys.geminiKeys.length, masked: keys.geminiKeys.map(maskSecret) },
+      gemini: {
+        count: keys.geminiKeys.length,
+        masked: keys.geminiKeys.map(maskSecret),
+        model: keys.geminiModel,
+      },
     };
+  },
+
+  /** Set the preferred Gemini model (null/empty resets to default). */
+  async setGeminiModel(userId: string, model: string | null) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { geminiModel: model?.trim() || null },
+    });
   },
 
   /**

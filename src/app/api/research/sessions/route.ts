@@ -6,6 +6,10 @@ import { handle, ok, enforceRate } from '@/lib/api/respond';
 import { QuotaService } from '@/lib/services/quota.service';
 import { PLAN_LIMITS } from '@/config/plans';
 
+// Without QStash, the research job runs inline after the response (see queue.ts)
+// — give it room to finish. Requires Fluid Compute (default on new projects).
+export const maxDuration = 300;
+
 /** POST /api/research/sessions — start a Mode 1 run (enqueues, returns 202). */
 export async function POST(req: Request) {
   return handle(async () => {

@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { env } from '@/lib/env';
 
 export type JobType = 'nicheExpansion' | 'imageAnalysis' | 'portfolioAnalysis';
@@ -9,10 +10,12 @@ export interface JobPayload {
 }
 
 /**
- * Enqueue a background job. In production this publishes to Upstash QStash,
- * which calls back into /api/jobs/[type]. In local dev (no QSTASH_TOKEN) it runs
- * the processor inline on the next tick so the app works end-to-end without
- * external infra — see `runInline`.
+ * Enqueue a background job. With QSTASH_TOKEN set this publishes to Upstash
+ * QStash, which calls back into /api/jobs/[type]. Without it, the job runs
+ * inline via Next's `after()` — which tells Vercel to keep the function alive
+ * after the response is sent (a bare fire-and-forget promise would be frozen
+ * mid-run when the serverless function suspends). The calling route must set a
+ * `maxDuration` large enough for the job.
  */
 export async function enqueue<T extends JobType>(type: T, payload: JobPayload[T]): Promise<void> {
   if (env.QSTASH_TOKEN) {
@@ -24,8 +27,12 @@ export async function enqueue<T extends JobType>(type: T, payload: JobPayload[T]
     });
     return;
   }
-  // Dev fallback: run without blocking the response.
-  void runInline(type, payload);
+  try {
+    after(() => runInline(type, payload));
+  } catch {
+    // outside a request scope (worker/scripts): plain fire-and-forget is fine
+    void runInline(type, payload);
+  }
 }
 
 async function runInline<T extends JobType>(type: T, payload: JobPayload[T]): Promise<void> {
